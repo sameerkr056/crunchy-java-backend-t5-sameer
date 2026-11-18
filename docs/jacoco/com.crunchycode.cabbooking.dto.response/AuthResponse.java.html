@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AuthResponse.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">crunchy-java-backend-t5-sameer</a> &gt; <a href="index.source.html" class="el_package">com.crunchycode.cabbooking.dto.response</a> &gt; <span class="el_source">AuthResponse.java</span></div><h1>AuthResponse.java</h1><pre class="source lang-java linenums">package com.crunchycode.cabbooking.dto.response;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+
+public class AuthResponse {
+
+    @Schema(description = &quot;The JWT. Send it as: Authorization: Bearer &lt;token&gt;&quot;, example = &quot;eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJzdHVkZW50MSJ9.signature&quot;)
+    private final String token;
+    private final String tokenType;
+    @Schema(description = &quot;Minutes until the token expires&quot;, example = &quot;60&quot;)
+    private final long expiresInMinutes;
+    @Schema(example = &quot;student1&quot;)
+    private final String username;
+    @Schema(description = &quot;USER or ADMIN&quot;, example = &quot;USER&quot;)
+    private final String role;
+
+<span class="fc" id="L17">    public AuthResponse(String token, long expiresInMinutes, String username, String role) {</span>
+<span class="fc" id="L18">        this.token = token;</span>
+<span class="fc" id="L19">        this.tokenType = &quot;Bearer&quot;;</span>
+<span class="fc" id="L20">        this.expiresInMinutes = expiresInMinutes;</span>
+<span class="fc" id="L21">        this.username = username;</span>
+<span class="fc" id="L22">        this.role = role;</span>
+<span class="fc" id="L23">    }</span>
+
+    public String getToken() {
+<span class="fc" id="L26">        return token;</span>
+    }
+
+    public String getTokenType() {
+<span class="fc" id="L30">        return tokenType;</span>
+    }
+
+    public long getExpiresInMinutes() {
+<span class="fc" id="L34">        return expiresInMinutes;</span>
+    }
+
+    public String getUsername() {
+<span class="fc" id="L38">        return username;</span>
+    }
+
+    public String getRole() {
+<span class="fc" id="L42">        return role;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

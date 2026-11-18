@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SecurityConfig.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">crunchy-java-backend-t5-sameer</a> &gt; <a href="index.source.html" class="el_package">com.crunchycode.cabbooking.security</a> &gt; <span class="el_source">SecurityConfig.java</span></div><h1>SecurityConfig.java</h1><pre class="source lang-java linenums">package com.crunchycode.cabbooking.security;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+/**
+ * Security rules of the application.
+ *
+ * Two layers protect the API:
+ *  1. URL level (here): only /api/v1/auth/**, the Swagger/OpenAPI documentation and /actuator/health are public,
+ *     everything else needs a valid JWT -&gt; otherwise 401.
+ *  2. Method level (@PreAuthorize on the controller methods): decides which ROLE may call which method -&gt; otherwise 403.
+ */
+@Configuration
+@EnableWebSecurity
+@EnableMethodSecurity
+<span class="fc" id="L29">public class SecurityConfig {</span>
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+<span class="fc" id="L33">        return new BCryptPasswordEncoder();</span>
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
+<span class="fc" id="L38">        return configuration.getAuthenticationManager();</span>
+    }
+
+    @Bean
+    public JwtAuthenticationFilter jwtAuthenticationFilter(JwtService jwtService) {
+<span class="fc" id="L43">        return new JwtAuthenticationFilter(jwtService);</span>
+    }
+
+    // The JWT filter must only run inside the Spring Security filter chain, so stop Spring Boot from also
+    // registering it as a normal servlet filter.
+    @Bean
+    public FilterRegistrationBean&lt;JwtAuthenticationFilter&gt; jwtFilterRegistration(JwtAuthenticationFilter filter) {
+<span class="fc" id="L50">        FilterRegistrationBean&lt;JwtAuthenticationFilter&gt; registration = new FilterRegistrationBean&lt;&gt;(filter);</span>
+<span class="fc" id="L51">        registration.setEnabled(false);</span>
+<span class="fc" id="L52">        return registration;</span>
+    }
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http,
+                                                   JwtAuthenticationFilter jwtAuthenticationFilter,
+                                                   ObjectMapper objectMapper) throws Exception {
+<span class="fc" id="L59">        http</span>
+                // No cookies or sessions are used, only the Authorization header, so CSRF protection is not needed
+<span class="fc" id="L61">                .csrf(csrf -&gt; csrf.disable())</span>
+<span class="fc" id="L62">                .sessionManagement(session -&gt; session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))</span>
+<span class="fc" id="L63">                .authorizeHttpRequests(auth -&gt; auth</span>
+                        // public: register/login, Swagger UI, OpenAPI JSON, health check
+<span class="fc" id="L65">                        .requestMatchers(&quot;/api/v1/auth/**&quot;, &quot;/error&quot;,</span>
+                                &quot;/swagger-ui.html&quot;, &quot;/swagger-ui/**&quot;, &quot;/v3/api-docs&quot;, &quot;/v3/api-docs/**&quot;,
+<span class="fc" id="L67">                                &quot;/actuator/health&quot;, &quot;/actuator/health/**&quot;).permitAll()</span>
+<span class="fc" id="L68">                        .anyRequest().authenticated())</span>
+<span class="fc" id="L69">                .exceptionHandling(handling -&gt; handling</span>
+<span class="fc" id="L70">                        .authenticationEntryPoint(new RestAuthenticationEntryPoint(objectMapper))</span>
+<span class="fc" id="L71">                        .accessDeniedHandler(new RestAccessDeniedHandler(objectMapper)))</span>
+<span class="fc" id="L72">                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);</span>
+
+<span class="fc" id="L74">        return http.build();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

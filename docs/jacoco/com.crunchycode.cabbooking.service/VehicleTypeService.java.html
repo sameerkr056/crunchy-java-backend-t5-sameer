@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>VehicleTypeService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">crunchy-java-backend-t5-sameer</a> &gt; <a href="index.source.html" class="el_package">com.crunchycode.cabbooking.service</a> &gt; <span class="el_source">VehicleTypeService.java</span></div><h1>VehicleTypeService.java</h1><pre class="source lang-java linenums">package com.crunchycode.cabbooking.service;
+
+import com.crunchycode.cabbooking.dto.request.VehicleTypeRequest;
+import com.crunchycode.cabbooking.dto.response.DriverResponse;
+import com.crunchycode.cabbooking.dto.response.PageResponse;
+import com.crunchycode.cabbooking.dto.response.VehicleTypeResponse;
+import com.crunchycode.cabbooking.exception.ResourceConflictException;
+import com.crunchycode.cabbooking.exception.ResourceNotFoundException;
+import com.crunchycode.cabbooking.model.VehicleType;
+import com.crunchycode.cabbooking.repository.DriverRepository;
+import com.crunchycode.cabbooking.repository.VehicleTypeRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+@Transactional(readOnly = true)
+public class VehicleTypeService {
+
+    private final VehicleTypeRepository vehicleTypeRepository;
+    private final DriverRepository driverRepository;
+
+<span class="fc" id="L24">    public VehicleTypeService(VehicleTypeRepository vehicleTypeRepository, DriverRepository driverRepository) {</span>
+<span class="fc" id="L25">        this.vehicleTypeRepository = vehicleTypeRepository;</span>
+<span class="fc" id="L26">        this.driverRepository = driverRepository;</span>
+<span class="fc" id="L27">    }</span>
+
+    @Transactional
+    public VehicleTypeResponse createVehicleType(VehicleTypeRequest request) {
+<span class="fc bfc" id="L31" title="All 2 branches covered.">        if (vehicleTypeRepository.existsByNameIgnoreCase(request.getName())) {</span>
+<span class="fc" id="L32">            throw new ResourceConflictException(&quot;A vehicle type named '&quot; + request.getName() + &quot;' already exists&quot;);</span>
+        }
+<span class="fc" id="L34">        VehicleType vehicleType = new VehicleType();</span>
+<span class="fc" id="L35">        vehicleType.setName(request.getName());</span>
+<span class="fc" id="L36">        vehicleType.setDescription(request.getDescription());</span>
+<span class="fc" id="L37">        return VehicleTypeResponse.from(vehicleTypeRepository.save(vehicleType));</span>
+    }
+
+    public PageResponse&lt;VehicleTypeResponse&gt; getAllVehicleTypes(Pageable pageable) {
+<span class="fc" id="L41">        Page&lt;VehicleTypeResponse&gt; page = vehicleTypeRepository.findAll(pageable).map(VehicleTypeResponse::from);</span>
+<span class="fc" id="L42">        return PageResponse.from(page);</span>
+    }
+
+    public VehicleTypeResponse getVehicleTypeById(Long id) {
+<span class="fc" id="L46">        return VehicleTypeResponse.from(findVehicleTypeOrThrow(id));</span>
+    }
+
+    @Transactional
+    public VehicleTypeResponse updateVehicleType(Long id, VehicleTypeRequest request) {
+<span class="fc" id="L51">        VehicleType vehicleType = findVehicleTypeOrThrow(id);</span>
+<span class="fc bfc" id="L52" title="All 2 branches covered.">        if (vehicleTypeRepository.existsByNameIgnoreCaseAndIdNot(request.getName(), id)) {</span>
+<span class="fc" id="L53">            throw new ResourceConflictException(&quot;A vehicle type named '&quot; + request.getName() + &quot;' already exists&quot;);</span>
+        }
+<span class="fc" id="L55">        vehicleType.setName(request.getName());</span>
+<span class="fc" id="L56">        vehicleType.setDescription(request.getDescription());</span>
+<span class="fc" id="L57">        return VehicleTypeResponse.from(vehicleType);</span>
+    }
+
+    @Transactional
+    public void deleteVehicleType(Long id) {
+<span class="fc" id="L62">        VehicleType vehicleType = findVehicleTypeOrThrow(id);</span>
+<span class="fc bfc" id="L63" title="All 2 branches covered.">        if (driverRepository.existsByVehicleTypesId(id)) {</span>
+<span class="fc" id="L64">            throw new ResourceConflictException(</span>
+                    &quot;Vehicle type with id &quot; + id + &quot; cannot be deleted because drivers are using it&quot;);
+        }
+<span class="fc" id="L67">        vehicleTypeRepository.delete(vehicleType);</span>
+<span class="fc" id="L68">    }</span>
+
+    // Many-to-many: drivers that have this vehicle type
+    public PageResponse&lt;DriverResponse&gt; getDriversOfVehicleType(Long id, Pageable pageable) {
+<span class="fc" id="L72">        findVehicleTypeOrThrow(id);</span>
+<span class="fc" id="L73">        Page&lt;DriverResponse&gt; page = driverRepository.findByVehicleTypesId(id, pageable).map(DriverResponse::from);</span>
+<span class="fc" id="L74">        return PageResponse.from(page);</span>
+    }
+
+    private VehicleType findVehicleTypeOrThrow(Long id) {
+<span class="fc" id="L78">        return vehicleTypeRepository.findById(id)</span>
+<span class="fc" id="L79">                .orElseThrow(() -&gt; new ResourceNotFoundException(&quot;Vehicle type not found with id: &quot; + id));</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

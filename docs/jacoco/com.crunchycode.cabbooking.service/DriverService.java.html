@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DriverService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">crunchy-java-backend-t5-sameer</a> &gt; <a href="index.source.html" class="el_package">com.crunchycode.cabbooking.service</a> &gt; <span class="el_source">DriverService.java</span></div><h1>DriverService.java</h1><pre class="source lang-java linenums">package com.crunchycode.cabbooking.service;
+
+import com.crunchycode.cabbooking.dto.request.DriverRequest;
+import com.crunchycode.cabbooking.dto.response.DriverResponse;
+import com.crunchycode.cabbooking.dto.response.DriverWithRidesResponse;
+import com.crunchycode.cabbooking.dto.response.PageResponse;
+import com.crunchycode.cabbooking.dto.response.VehicleTypeResponse;
+import com.crunchycode.cabbooking.exception.ResourceConflictException;
+import com.crunchycode.cabbooking.exception.ResourceNotFoundException;
+import com.crunchycode.cabbooking.model.Driver;
+import com.crunchycode.cabbooking.model.RideStatus;
+import com.crunchycode.cabbooking.model.VehicleType;
+import com.crunchycode.cabbooking.repository.DriverRepository;
+import com.crunchycode.cabbooking.repository.RideRepository;
+import com.crunchycode.cabbooking.repository.VehicleTypeRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Read-only transactions by default. Methods that change data have their own @Transactional.
+ * The transaction (and the Hibernate session) stays open until the DTOs are built,
+ * so lazy loading works here and nowhere else.
+ */
+@Service
+@Transactional(readOnly = true)
+public class DriverService {
+
+    private final DriverRepository driverRepository;
+    private final RideRepository rideRepository;
+    private final VehicleTypeRepository vehicleTypeRepository;
+
+    public DriverService(DriverRepository driverRepository,
+                         RideRepository rideRepository,
+<span class="fc" id="L40">                         VehicleTypeRepository vehicleTypeRepository) {</span>
+<span class="fc" id="L41">        this.driverRepository = driverRepository;</span>
+<span class="fc" id="L42">        this.rideRepository = rideRepository;</span>
+<span class="fc" id="L43">        this.vehicleTypeRepository = vehicleTypeRepository;</span>
+<span class="fc" id="L44">    }</span>
+
+    @Transactional
+    public DriverResponse createDriver(DriverRequest request) {
+<span class="fc" id="L48">        checkEmailAndLicenseAreFree(request, null);</span>
+
+<span class="fc" id="L50">        Driver driver = new Driver();</span>
+<span class="fc" id="L51">        driver.setName(request.getName());</span>
+<span class="fc" id="L52">        driver.setEmail(request.getEmail());</span>
+<span class="fc" id="L53">        driver.setPhone(request.getPhone());</span>
+<span class="fc" id="L54">        driver.setLicenseNumber(request.getLicenseNumber());</span>
+        // A new driver is available unless the client says otherwise
+<span class="pc bpc" id="L56" title="3 of 4 branches missed.">        driver.setAvailable(request.getAvailable() == null || request.getAvailable());</span>
+<span class="fc" id="L57">        return DriverResponse.from(driverRepository.save(driver));</span>
+    }
+
+    public PageResponse&lt;DriverResponse&gt; getAllDrivers(Boolean available, Pageable pageable) {
+<span class="fc" id="L61">        Page&lt;DriverResponse&gt; page = driverRepository.search(available, pageable).map(DriverResponse::from);</span>
+<span class="fc" id="L62">        return PageResponse.from(page);</span>
+    }
+
+    public DriverResponse getDriverById(Long id) {
+<span class="fc" id="L66">        return DriverResponse.from(findDriverOrThrow(id));</span>
+    }
+
+    @Transactional
+    public DriverResponse updateDriver(Long id, DriverRequest request) {
+<span class="fc" id="L71">        Driver driver = findDriverOrThrow(id);</span>
+<span class="fc" id="L72">        checkEmailAndLicenseAreFree(request, id);</span>
+
+        // A driver on an ACCEPTED ride cannot be marked available by hand
+<span class="fc bfc" id="L75" title="All 2 branches covered.">        if (Boolean.TRUE.equals(request.getAvailable())</span>
+<span class="pc bpc" id="L76" title="1 of 2 branches missed.">                &amp;&amp; rideRepository.existsByDriverIdAndStatus(id, RideStatus.ACCEPTED)) {</span>
+<span class="fc" id="L77">            throw new ResourceConflictException(</span>
+                    &quot;Driver with id &quot; + id + &quot; is on an accepted ride and cannot be marked available&quot;);
+        }
+
+<span class="fc" id="L81">        driver.setName(request.getName());</span>
+<span class="fc" id="L82">        driver.setEmail(request.getEmail());</span>
+<span class="fc" id="L83">        driver.setPhone(request.getPhone());</span>
+<span class="fc" id="L84">        driver.setLicenseNumber(request.getLicenseNumber());</span>
+<span class="pc bpc" id="L85" title="1 of 2 branches missed.">        if (request.getAvailable() != null) {</span>
+<span class="fc" id="L86">            driver.setAvailable(request.getAvailable());</span>
+        }
+        // No save() needed: the driver is managed, Hibernate saves the changes when the transaction commits
+<span class="fc" id="L89">        return DriverResponse.from(driver);</span>
+    }
+
+    @Transactional
+    public void deleteDriver(Long id) {
+<span class="fc" id="L94">        Driver driver = findDriverOrThrow(id);</span>
+<span class="fc bfc" id="L95" title="All 2 branches covered.">        if (rideRepository.existsByDriverId(id)) {</span>
+<span class="fc" id="L96">            throw new ResourceConflictException(</span>
+                    &quot;Driver with id &quot; + id + &quot; cannot be deleted because the driver has associated rides&quot;);
+        }
+        // Also removes this driver's rows from the driver_vehicle_types join table
+<span class="fc" id="L100">        driverRepository.delete(driver);</span>
+<span class="fc" id="L101">    }</span>
+
+    // ------------------------------------------------------------------
+    // Many-to-many: Driver &lt;-&gt; VehicleType
+    // ------------------------------------------------------------------
+
+    @Transactional
+    public void assignVehicleType(Long driverId, Long vehicleTypeId) {
+<span class="fc" id="L109">        Driver driver = findDriverOrThrow(driverId);</span>
+<span class="fc" id="L110">        VehicleType vehicleType = findVehicleTypeOrThrow(vehicleTypeId);</span>
+        // Set.add does nothing if the pair already exists, so this call is safe to repeat
+<span class="fc" id="L112">        driver.getVehicleTypes().add(vehicleType);</span>
+<span class="fc" id="L113">    }</span>
+
+    @Transactional
+    public void removeVehicleType(Long driverId, Long vehicleTypeId) {
+<span class="fc" id="L117">        Driver driver = findDriverOrThrow(driverId);</span>
+<span class="fc" id="L118">        VehicleType vehicleType = findVehicleTypeOrThrow(vehicleTypeId);</span>
+<span class="fc" id="L119">        boolean removed = driver.getVehicleTypes().remove(vehicleType);</span>
+<span class="fc bfc" id="L120" title="All 2 branches covered.">        if (!removed) {</span>
+<span class="fc" id="L121">            throw new ResourceNotFoundException(</span>
+                    &quot;Driver &quot; + driverId + &quot; does not have vehicle type &quot; + vehicleTypeId);
+        }
+<span class="fc" id="L124">    }</span>
+
+    public PageResponse&lt;VehicleTypeResponse&gt; getVehicleTypesOfDriver(Long driverId, Pageable pageable) {
+<span class="fc" id="L127">        findDriverOrThrow(driverId);</span>
+<span class="fc" id="L128">        Page&lt;VehicleTypeResponse&gt; page = vehicleTypeRepository.findByDriversId(driverId, pageable)</span>
+<span class="fc" id="L129">                .map(VehicleTypeResponse::from);</span>
+<span class="fc" id="L130">        return PageResponse.from(page);</span>
+    }
+
+    // ------------------------------------------------------------------
+    // N+1 demonstration: drivers together with their rides
+    // ------------------------------------------------------------------
+
+    /**
+     * BEFORE: this version has the N+1 problem.
+     * Query 1 loads one page of drivers (plus a count query for the page info).
+     * Then DriverWithRidesResponse.from() calls driver.getRides() for every driver,
+     * and Hibernate runs ONE extra &quot;select ... from rides where driver_id=?&quot; per driver.
+     * For a page of N drivers that is 1 + N queries (+ 1 count).
+     */
+    public PageResponse&lt;DriverWithRidesResponse&gt; getDriversWithRidesNaive(Pageable pageable) {
+<span class="fc" id="L145">        Page&lt;Driver&gt; drivers = driverRepository.search(null, pageable);</span>
+<span class="fc" id="L146">        return PageResponse.from(drivers.map(DriverWithRidesResponse::from));</span>
+    }
+
+    /**
+     * AFTER: two-step loading with JOIN FETCH.
+     * Step 1: load one page of drivers (normal pagination, done in the database).
+     * Step 2: load the rides of exactly those drivers with ONE &quot;left join fetch&quot; query.
+     * Total: always 2 queries (+ 1 count), no matter how many drivers are on the page.
+     *
+     * Why two steps? JOIN FETCH on a collection together with Pageable would make Hibernate
+     * load everything and paginate in memory (warning HHH90003004). Paging the drivers first
+     * and fetching the rides afterwards keeps the pagination correct and fast.
+     */
+    public PageResponse&lt;DriverWithRidesResponse&gt; getDriversWithRidesOptimized(Pageable pageable) {
+<span class="fc" id="L160">        Page&lt;Driver&gt; page = driverRepository.search(null, pageable);</span>
+
+<span class="fc" id="L162">        List&lt;Long&gt; driverIds = page.getContent().stream().map(Driver::getId).toList();</span>
+<span class="fc" id="L163">        Map&lt;Long, Driver&gt; driversWithRides = new HashMap&lt;&gt;();</span>
+<span class="fc bfc" id="L164" title="All 2 branches covered.">        if (!driverIds.isEmpty()) {</span>
+<span class="fc bfc" id="L165" title="All 2 branches covered.">            for (Driver driver : driverRepository.findAllWithRidesByIdIn(driverIds)) {</span>
+<span class="fc" id="L166">                driversWithRides.put(driver.getId(), driver);</span>
+<span class="fc" id="L167">            }</span>
+        }
+
+        // Keep the order of the first query (it contains the requested sorting)
+<span class="fc" id="L171">        return PageResponse.from(page.map(driver -&gt;</span>
+<span class="fc" id="L172">                DriverWithRidesResponse.from(driversWithRides.get(driver.getId()))));</span>
+    }
+
+    // ------------------------------------------------------------------
+
+    private void checkEmailAndLicenseAreFree(DriverRequest request, Long currentDriverId) {
+<span class="fc bfc" id="L178" title="All 2 branches covered.">        boolean emailTaken = currentDriverId == null</span>
+<span class="fc" id="L179">                ? driverRepository.existsByEmailIgnoreCase(request.getEmail())</span>
+<span class="fc" id="L180">                : driverRepository.existsByEmailIgnoreCaseAndIdNot(request.getEmail(), currentDriverId);</span>
+<span class="fc bfc" id="L181" title="All 2 branches covered.">        if (emailTaken) {</span>
+<span class="fc" id="L182">            throw new ResourceConflictException(&quot;A driver with email &quot; + request.getEmail() + &quot; already exists&quot;);</span>
+        }
+
+<span class="fc bfc" id="L185" title="All 2 branches covered.">        boolean licenseTaken = currentDriverId == null</span>
+<span class="fc" id="L186">                ? driverRepository.existsByLicenseNumberIgnoreCase(request.getLicenseNumber())</span>
+<span class="fc" id="L187">                : driverRepository.existsByLicenseNumberIgnoreCaseAndIdNot(request.getLicenseNumber(), currentDriverId);</span>
+<span class="fc bfc" id="L188" title="All 2 branches covered.">        if (licenseTaken) {</span>
+<span class="fc" id="L189">            throw new ResourceConflictException(</span>
+<span class="fc" id="L190">                    &quot;A driver with license number &quot; + request.getLicenseNumber() + &quot; already exists&quot;);</span>
+        }
+<span class="fc" id="L192">    }</span>
+
+    private Driver findDriverOrThrow(Long id) {
+<span class="fc" id="L195">        return driverRepository.findById(id)</span>
+<span class="fc" id="L196">                .orElseThrow(() -&gt; new ResourceNotFoundException(&quot;Driver not found with id: &quot; + id));</span>
+    }
+
+    private VehicleType findVehicleTypeOrThrow(Long id) {
+<span class="fc" id="L200">        return vehicleTypeRepository.findById(id)</span>
+<span class="fc" id="L201">                .orElseThrow(() -&gt; new ResourceNotFoundException(&quot;Vehicle type not found with id: &quot; + id));</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

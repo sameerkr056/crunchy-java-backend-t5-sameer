@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RideService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">crunchy-java-backend-t5-sameer</a> &gt; <a href="index.source.html" class="el_package">com.crunchycode.cabbooking.service</a> &gt; <span class="el_source">RideService.java</span></div><h1>RideService.java</h1><pre class="source lang-java linenums">package com.crunchycode.cabbooking.service;
+
+import com.crunchycode.cabbooking.dto.request.RideRequest;
+import com.crunchycode.cabbooking.dto.response.PageResponse;
+import com.crunchycode.cabbooking.dto.response.RideResponse;
+import com.crunchycode.cabbooking.exception.ResourceConflictException;
+import com.crunchycode.cabbooking.exception.ResourceNotFoundException;
+import com.crunchycode.cabbooking.model.Driver;
+import com.crunchycode.cabbooking.model.Ride;
+import com.crunchycode.cabbooking.model.RideStatus;
+import com.crunchycode.cabbooking.repository.DriverRepository;
+import com.crunchycode.cabbooking.repository.RideRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.RoundingMode;
+import java.time.LocalDateTime;
+
+@Service
+@Transactional(readOnly = true)
+public class RideService {
+
+    private final RideRepository rideRepository;
+    private final DriverRepository driverRepository;
+
+<span class="fc" id="L28">    public RideService(RideRepository rideRepository, DriverRepository driverRepository) {</span>
+<span class="fc" id="L29">        this.rideRepository = rideRepository;</span>
+<span class="fc" id="L30">        this.driverRepository = driverRepository;</span>
+<span class="fc" id="L31">    }</span>
+
+    @Transactional
+    public RideResponse createRide(RideRequest request) {
+        // Rule 1: a ride must belong to an existing driver
+<span class="fc" id="L36">        Driver driver = findDriverOrThrow(request.getDriverId());</span>
+
+<span class="fc" id="L38">        Ride ride = new Ride();</span>
+<span class="fc" id="L39">        copyDetails(request, ride);</span>
+        // Rules 3 and 4: always REQUESTED, the client cannot choose
+<span class="fc" id="L41">        ride.setStatus(RideStatus.REQUESTED);</span>
+<span class="fc" id="L42">        ride.setBookingTime(LocalDateTime.now());</span>
+<span class="fc" id="L43">        driver.addRide(ride); // sets both sides of the relationship</span>
+<span class="fc" id="L44">        return RideResponse.from(rideRepository.save(ride));</span>
+    }
+
+    public PageResponse&lt;RideResponse&gt; getAllRides(RideStatus status, Long driverId, Pageable pageable) {
+<span class="fc" id="L48">        Page&lt;RideResponse&gt; page = rideRepository.search(status, driverId, pageable).map(RideResponse::from);</span>
+<span class="fc" id="L49">        return PageResponse.from(page);</span>
+    }
+
+    public RideResponse getRideById(Long id) {
+<span class="nc" id="L53">        return RideResponse.from(findRideOrThrow(id));</span>
+    }
+
+    // Rule 10: PUT never changes the status. Only REQUESTED rides can be edited.
+    @Transactional
+    public RideResponse updateRide(Long id, RideRequest request) {
+<span class="fc" id="L59">        Ride ride = findRideOrThrow(id);</span>
+<span class="fc bfc" id="L60" title="All 2 branches covered.">        if (ride.getStatus() != RideStatus.REQUESTED) {</span>
+<span class="fc" id="L61">            throw new ResourceConflictException(</span>
+<span class="fc" id="L62">                    &quot;Only REQUESTED rides can be updated. Current status: &quot; + ride.getStatus());</span>
+        }
+
+<span class="fc" id="L65">        Driver newDriver = findDriverOrThrow(request.getDriverId());</span>
+<span class="fc bfc" id="L66" title="All 2 branches covered.">        if (!newDriver.getId().equals(ride.getDriver().getId())) {</span>
+            // moving the ride to another driver: update both sides
+<span class="fc" id="L68">            ride.getDriver().removeRide(ride);</span>
+<span class="fc" id="L69">            newDriver.addRide(ride);</span>
+        }
+<span class="fc" id="L71">        copyDetails(request, ride);</span>
+<span class="fc" id="L72">        return RideResponse.from(ride);</span>
+    }
+
+    @Transactional
+    public void deleteRide(Long id) {
+<span class="fc" id="L77">        Ride ride = findRideOrThrow(id);</span>
+        // If an accepted ride is deleted, its driver must not stay unavailable forever
+<span class="fc bfc" id="L79" title="All 2 branches covered.">        if (ride.getStatus() == RideStatus.ACCEPTED) {</span>
+<span class="fc" id="L80">            ride.getDriver().setAvailable(true);</span>
+        }
+<span class="fc" id="L82">        rideRepository.delete(ride);</span>
+<span class="fc" id="L83">    }</span>
+
+    // Rules 2, 5 and 6
+    @Transactional
+    public RideResponse acceptRide(Long id) {
+<span class="fc" id="L88">        Ride ride = findRideOrThrow(id);</span>
+<span class="fc bfc" id="L89" title="All 2 branches covered.">        if (ride.getStatus() != RideStatus.REQUESTED) {</span>
+<span class="fc" id="L90">            throw new ResourceConflictException(</span>
+<span class="fc" id="L91">                    &quot;Only REQUESTED rides can be accepted. Current status: &quot; + ride.getStatus());</span>
+        }
+
+<span class="fc" id="L94">        Driver driver = ride.getDriver();</span>
+<span class="fc bfc" id="L95" title="All 2 branches covered.">        if (!driver.isAvailable()) {</span>
+<span class="fc" id="L96">            throw new ResourceConflictException(</span>
+<span class="fc" id="L97">                    &quot;Driver with id &quot; + driver.getId() + &quot; is not available to accept this ride&quot;);</span>
+        }
+
+        // Both changes are saved together when the transaction commits
+<span class="fc" id="L101">        ride.setStatus(RideStatus.ACCEPTED);</span>
+<span class="fc" id="L102">        driver.setAvailable(false);</span>
+<span class="fc" id="L103">        return RideResponse.from(ride);</span>
+    }
+
+    // Rules 7, 8 and 9
+    @Transactional
+    public RideResponse updateRideStatus(Long id, RideStatus newStatus) {
+<span class="fc" id="L109">        Ride ride = findRideOrThrow(id);</span>
+<span class="fc" id="L110">        RideStatus currentStatus = ride.getStatus();</span>
+
+<span class="fc bfc" id="L112" title="All 4 branches covered.">        boolean newStatusAllowed = newStatus == RideStatus.COMPLETED || newStatus == RideStatus.CANCELLED;</span>
+<span class="fc bfc" id="L113" title="All 4 branches covered.">        if (currentStatus != RideStatus.ACCEPTED || !newStatusAllowed) {</span>
+<span class="fc" id="L114">            throw new ResourceConflictException(&quot;Invalid status transition from &quot; + currentStatus + &quot; to &quot;</span>
+                    + newStatus + &quot;. Only ACCEPTED rides can become COMPLETED or CANCELLED&quot;
+                    + &quot; (use the accept endpoint to accept a REQUESTED ride)&quot;);
+        }
+
+<span class="fc" id="L119">        ride.setStatus(newStatus);</span>
+<span class="fc" id="L120">        ride.getDriver().setAvailable(true);</span>
+<span class="fc" id="L121">        return RideResponse.from(ride);</span>
+    }
+
+    private void copyDetails(RideRequest request, Ride ride) {
+<span class="fc" id="L125">        ride.setPassengerName(request.getPassengerName());</span>
+<span class="fc" id="L126">        ride.setPickupLocation(request.getPickupLocation());</span>
+<span class="fc" id="L127">        ride.setDropLocation(request.getDropLocation());</span>
+<span class="fc" id="L128">        ride.setFare(request.getFare().setScale(2, RoundingMode.HALF_UP));</span>
+<span class="fc" id="L129">    }</span>
+
+    private Ride findRideOrThrow(Long id) {
+<span class="fc" id="L132">        return rideRepository.findById(id)</span>
+<span class="fc" id="L133">                .orElseThrow(() -&gt; new ResourceNotFoundException(&quot;Ride not found with id: &quot; + id));</span>
+    }
+
+    private Driver findDriverOrThrow(Long id) {
+<span class="fc" id="L137">        return driverRepository.findById(id)</span>
+<span class="fc" id="L138">                .orElseThrow(() -&gt; new ResourceNotFoundException(&quot;Driver not found with id: &quot; + id));</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

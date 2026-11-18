@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GlobalExceptionHandler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">crunchy-java-backend-t5-sameer</a> &gt; <a href="index.source.html" class="el_package">com.crunchycode.cabbooking.exception</a> &gt; <span class="el_source">GlobalExceptionHandler.java</span></div><h1>GlobalExceptionHandler.java</h1><pre class="source lang-java linenums">package com.crunchycode.cabbooking.exception;
+
+import com.crunchycode.cabbooking.dto.response.ErrorResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolationException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.validation.BindException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
+
+import java.util.stream.Collectors;
+
+@RestControllerAdvice
+<span class="fc" id="L26">public class GlobalExceptionHandler {</span>
+
+<span class="fc" id="L28">    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);</span>
+
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity&lt;ErrorResponse&gt; handleNotFound(ResourceNotFoundException ex, HttpServletRequest request) {
+<span class="fc" id="L32">        return build(HttpStatus.NOT_FOUND, ex.getMessage(), request);</span>
+    }
+
+    @ExceptionHandler(ResourceConflictException.class)
+    public ResponseEntity&lt;ErrorResponse&gt; handleConflict(ResourceConflictException ex, HttpServletRequest request) {
+<span class="fc" id="L37">        return build(HttpStatus.CONFLICT, ex.getMessage(), request);</span>
+    }
+
+    // Invalid @Valid request body, or invalid pagination parameters (page, size, direction)
+    @ExceptionHandler({MethodArgumentNotValidException.class, BindException.class})
+    public ResponseEntity&lt;ErrorResponse&gt; handleBodyValidation(BindException ex, HttpServletRequest request) {
+<span class="fc" id="L43">        String message = ex.getBindingResult().getFieldErrors().stream()</span>
+<span class="fc" id="L44">                .map(error -&gt; error.getField() + &quot;: &quot; + error.getDefaultMessage())</span>
+<span class="fc" id="L45">                .sorted()</span>
+<span class="fc" id="L46">                .collect(Collectors.joining(&quot;; &quot;));</span>
+<span class="fc" id="L47">        return build(HttpStatus.BAD_REQUEST, message, request);</span>
+    }
+
+    @ExceptionHandler(BadRequestException.class)
+    public ResponseEntity&lt;ErrorResponse&gt; handleBadRequest(BadRequestException ex, HttpServletRequest request) {
+<span class="fc" id="L52">        return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request);</span>
+    }
+
+    // Wrong username or password at login
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity&lt;ErrorResponse&gt; handleBadCredentials(BadCredentialsException ex, HttpServletRequest request) {
+<span class="fc" id="L58">        return build(HttpStatus.UNAUTHORIZED, &quot;Invalid username or password&quot;, request);</span>
+    }
+
+    // Any other authentication problem
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity&lt;ErrorResponse&gt; handleAuthentication(AuthenticationException ex, HttpServletRequest request) {
+<span class="nc" id="L64">        return build(HttpStatus.UNAUTHORIZED, &quot;Authentication is required&quot;, request);</span>
+    }
+
+    // The user is logged in but the role is not allowed (@PreAuthorize failed).
+    // Without this handler the catch-all handler below would wrongly turn it into a 500 error.
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity&lt;ErrorResponse&gt; handleAccessDenied(AccessDeniedException ex, HttpServletRequest request) {
+<span class="fc" id="L71">        return build(HttpStatus.FORBIDDEN, &quot;You do not have permission to perform this action&quot;, request);</span>
+    }
+
+    // Safety net: the database rejected the data (for example a UNIQUE constraint)
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity&lt;ErrorResponse&gt; handleDataIntegrity(DataIntegrityViolationException ex,
+                                                             HttpServletRequest request) {
+<span class="nc" id="L78">        log.warn(&quot;Database constraint violation while handling {}&quot;, request.getRequestURI(), ex);</span>
+<span class="nc" id="L79">        return build(HttpStatus.CONFLICT, &quot;The request conflicts with existing data&quot;, request);</span>
+    }
+
+    // Invalid path variable or query parameter (e.g. @Positive id)
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity&lt;ErrorResponse&gt; handleConstraintViolation(ConstraintViolationException ex,
+                                                                   HttpServletRequest request) {
+<span class="nc" id="L86">        String message = ex.getConstraintViolations().stream()</span>
+<span class="nc" id="L87">                .map(violation -&gt; {</span>
+<span class="nc" id="L88">                    String path = violation.getPropertyPath().toString();</span>
+<span class="nc" id="L89">                    String field = path.substring(path.lastIndexOf('.') + 1);</span>
+<span class="nc" id="L90">                    return field + &quot;: &quot; + violation.getMessage();</span>
+                })
+<span class="nc" id="L92">                .sorted()</span>
+<span class="nc" id="L93">                .collect(Collectors.joining(&quot;; &quot;));</span>
+<span class="nc" id="L94">        return build(HttpStatus.BAD_REQUEST, message, request);</span>
+    }
+
+    // Broken JSON, wrong data type or an invalid enum value in the body
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity&lt;ErrorResponse&gt; handleUnreadableBody(HttpMessageNotReadableException ex,
+                                                              HttpServletRequest request) {
+<span class="fc" id="L101">        return build(HttpStatus.BAD_REQUEST,</span>
+                &quot;Malformed JSON request or invalid value in request body&quot;, request);
+    }
+
+    // Example: /api/v1/drivers/abc or /api/v1/rides?status=WRONG
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity&lt;ErrorResponse&gt; handleTypeMismatch(MethodArgumentTypeMismatchException ex,
+                                                            HttpServletRequest request) {
+<span class="fc" id="L109">        String message = &quot;Invalid value '&quot; + ex.getValue() + &quot;' for parameter '&quot; + ex.getName() + &quot;'&quot;;</span>
+<span class="fc" id="L110">        return build(HttpStatus.BAD_REQUEST, message, request);</span>
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity&lt;ErrorResponse&gt; handleMethodNotSupported(HttpRequestMethodNotSupportedException ex,
+                                                                  HttpServletRequest request) {
+<span class="nc" id="L116">        return build(HttpStatus.METHOD_NOT_ALLOWED, ex.getMessage(), request);</span>
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity&lt;ErrorResponse&gt; handleNoResource(NoResourceFoundException ex, HttpServletRequest request) {
+<span class="fc" id="L121">        return build(HttpStatus.NOT_FOUND, &quot;No endpoint found for &quot; + request.getRequestURI(), request);</span>
+    }
+
+    // Anything unexpected: log it on the server, but never expose the stack trace to the client
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity&lt;ErrorResponse&gt; handleUnexpected(Exception ex, HttpServletRequest request) {
+<span class="fc" id="L127">        log.error(&quot;Unexpected error while handling {}&quot;, request.getRequestURI(), ex);</span>
+<span class="fc" id="L128">        return build(HttpStatus.INTERNAL_SERVER_ERROR, &quot;Something went wrong. Please try again later&quot;, request);</span>
+    }
+
+    private ResponseEntity&lt;ErrorResponse&gt; build(HttpStatus status, String message, HttpServletRequest request) {
+<span class="fc" id="L132">        ErrorResponse body = new ErrorResponse(status.value(), message, request.getRequestURI());</span>
+<span class="fc" id="L133">        return ResponseEntity.status(status).body(body);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>OpenApiConfig.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">crunchy-java-backend-t5-sameer</a> &gt; <a href="index.source.html" class="el_package">com.crunchycode.cabbooking.config</a> &gt; <span class="el_source">OpenApiConfig.java</span></div><h1>OpenApiConfig.java</h1><pre class="source lang-java linenums">package com.crunchycode.cabbooking.config;
+
+import io.swagger.v3.oas.models.Components;
+import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.info.Contact;
+import io.swagger.v3.oas.models.info.Info;
+import io.swagger.v3.oas.models.security.SecurityRequirement;
+import io.swagger.v3.oas.models.security.SecurityScheme;
+import org.springdoc.core.customizers.OperationCustomizer;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+/**
+ * Swagger / OpenAPI settings.
+ * - Describes the API.
+ * - Adds the &quot;Authorize&quot; button for the JWT (Bearer) token.
+ * - Adds the 401 / 403 answers to every protected endpoint.
+ */
+@Configuration
+<span class="fc" id="L20">public class OpenApiConfig {</span>
+
+    public static final String BEARER_SCHEME = &quot;bearerAuth&quot;;
+
+    @Bean
+    public OpenAPI cabBookingOpenApi() {
+<span class="fc" id="L26">        SecurityScheme bearer = new SecurityScheme()</span>
+<span class="fc" id="L27">                .name(BEARER_SCHEME)</span>
+<span class="fc" id="L28">                .type(SecurityScheme.Type.HTTP)</span>
+<span class="fc" id="L29">                .scheme(&quot;bearer&quot;)</span>
+<span class="fc" id="L30">                .bearerFormat(&quot;JWT&quot;)</span>
+<span class="fc" id="L31">                .description(&quot;Log in with POST /api/v1/auth/login, copy the \&quot;token\&quot; value and paste it here. &quot;</span>
+                        + &quot;Swagger adds the \&quot;Bearer \&quot; prefix for you.&quot;);
+
+<span class="fc" id="L34">        return new OpenAPI()</span>
+<span class="fc" id="L35">                .info(new Info()</span>
+<span class="fc" id="L36">                        .title(&quot;Cab Booking Management API&quot;)</span>
+<span class="fc" id="L37">                        .version(&quot;1.0.0&quot;)</span>
+<span class="fc" id="L38">                        .description(&quot;&quot;&quot;</span>
+                                REST API for drivers, rides and vehicle types (CrunchyCode internship, Task 5).
+
+                                **How to try it**
+                                1. Open `POST /api/v1/auth/register` and create a user (you become a USER).
+                                2. Open `POST /api/v1/auth/login` and copy the `token` from the response.
+                                3. Click **Authorize** (top right), paste the token and confirm.
+                                4. Call any endpoint. A USER can read data and create/edit rides. An ADMIN can do everything.
+
+                                **Pagination:** every list endpoint accepts `page`, `size`, `sortBy` and `direction`.
+
+                                **Errors** always look the same: `timestamp`, `status`, `message`, `path`.&quot;&quot;&quot;)
+<span class="fc" id="L50">                        .contact(new Contact().name(&quot;Sameer Kumar&quot;).url(&quot;https://github.com/sameerkr056&quot;)))</span>
+<span class="fc" id="L51">                .components(new Components().addSecuritySchemes(BEARER_SCHEME, bearer))</span>
+                // every endpoint needs the token unless it says otherwise (the auth endpoints override this)
+<span class="fc" id="L53">                .addSecurityItem(new SecurityRequirement().addList(BEARER_SCHEME));</span>
+    }
+
+    @Bean
+    public OperationCustomizer protectedEndpointResponses() {
+<span class="fc" id="L58">        return new ProtectedEndpointResponseCustomizer();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DriverRequest.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">crunchy-java-backend-t5-sameer</a> &gt; <a href="index.source.html" class="el_package">com.crunchycode.cabbooking.dto.request</a> &gt; <span class="el_source">DriverRequest.java</span></div><h1>DriverRequest.java</h1><pre class="source lang-java linenums">package com.crunchycode.cabbooking.dto.request;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+
+<span class="fc" id="L9">public class DriverRequest {</span>
+
+    @NotBlank(message = &quot;Name is required&quot;)
+    @Size(max = 100, message = &quot;Name must be at most 100 characters&quot;)
+    @Schema(description = &quot;Full name&quot;, example = &quot;Ravi Kumar&quot;)
+    private String name;
+
+    @NotBlank(message = &quot;Email is required&quot;)
+    @Email(message = &quot;Email must be a valid email address&quot;)
+    @Size(max = 150, message = &quot;Email must be at most 150 characters&quot;)
+    @Schema(description = &quot;Unique email address&quot;, example = &quot;ravi.kumar@example.com&quot;)
+    private String email;
+
+    @NotBlank(message = &quot;Phone is required&quot;)
+    @Pattern(regexp = &quot;^\\+?[0-9]{10,13}$&quot;, message = &quot;Phone must contain 10 to 13 digits, optionally starting with +&quot;)
+    @Schema(description = &quot;10 to 13 digits, optional leading +&quot;, example = &quot;9876543210&quot;)
+    private String phone;
+
+    @NotBlank(message = &quot;License number is required&quot;)
+    @Size(max = 50, message = &quot;License number must be at most 50 characters&quot;)
+    @Schema(description = &quot;Unique license number&quot;, example = &quot;JH0120230001&quot;)
+    private String licenseNumber;
+
+    // Optional. If missing, a new driver is available by default.
+    @Schema(description = &quot;Optional. Defaults to true for a new driver&quot;, example = &quot;true&quot;)
+    private Boolean available;
+
+    public String getName() {
+<span class="fc" id="L37">        return name;</span>
+    }
+
+    public void setName(String name) {
+<span class="fc" id="L41">        this.name = name;</span>
+<span class="fc" id="L42">    }</span>
+
+    public String getEmail() {
+<span class="fc" id="L45">        return email;</span>
+    }
+
+    public void setEmail(String email) {
+<span class="fc" id="L49">        this.email = email;</span>
+<span class="fc" id="L50">    }</span>
+
+    public String getPhone() {
+<span class="fc" id="L53">        return phone;</span>
+    }
+
+    public void setPhone(String phone) {
+<span class="fc" id="L57">        this.phone = phone;</span>
+<span class="fc" id="L58">    }</span>
+
+    public String getLicenseNumber() {
+<span class="fc" id="L61">        return licenseNumber;</span>
+    }
+
+    public void setLicenseNumber(String licenseNumber) {
+<span class="fc" id="L65">        this.licenseNumber = licenseNumber;</span>
+<span class="fc" id="L66">    }</span>
+
+    public Boolean getAvailable() {
+<span class="fc" id="L69">        return available;</span>
+    }
+
+    public void setAvailable(Boolean available) {
+<span class="fc" id="L73">        this.available = available;</span>
+<span class="fc" id="L74">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

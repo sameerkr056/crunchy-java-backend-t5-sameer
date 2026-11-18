@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Ride.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">crunchy-java-backend-t5-sameer</a> &gt; <a href="index.source.html" class="el_package">com.crunchycode.cabbooking.model</a> &gt; <span class="el_source">Ride.java</span></div><h1>Ride.java</h1><pre class="source lang-java linenums">package com.crunchycode.cabbooking.model;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = &quot;rides&quot;)
+public class Ride {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = &quot;passenger_name&quot;, nullable = false, length = 100)
+    private String passengerName;
+
+    @Column(name = &quot;pickup_location&quot;, nullable = false, length = 255)
+    private String pickupLocation;
+
+    @Column(name = &quot;drop_location&quot;, nullable = false, length = 255)
+    private String dropLocation;
+
+    @Column(nullable = false, precision = 10, scale = 2)
+    private BigDecimal fare;
+
+    // Stored as text (REQUESTED, ACCEPTED, ...) in a VARCHAR column.
+    // @JdbcTypeCode(VARCHAR) stops Hibernate 6 from expecting a native MySQL ENUM column.
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(nullable = false, length = 20)
+    private RideStatus status;
+
+    @Column(name = &quot;booking_time&quot;, nullable = false)
+    private LocalDateTime bookingTime;
+
+    /**
+     * MANY-TO-ONE (owning side). This side holds the foreign key column driver_id.
+     * LAZY so that loading a ride does not automatically load its driver.
+     */
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = &quot;driver_id&quot;, nullable = false)
+    private Driver driver;
+
+<span class="fc" id="L58">    public Ride() {</span>
+<span class="fc" id="L59">    }</span>
+
+    public Long getId() {
+<span class="fc" id="L62">        return id;</span>
+    }
+
+    public void setId(Long id) {
+<span class="fc" id="L66">        this.id = id;</span>
+<span class="fc" id="L67">    }</span>
+
+    public String getPassengerName() {
+<span class="fc" id="L70">        return passengerName;</span>
+    }
+
+    public void setPassengerName(String passengerName) {
+<span class="fc" id="L74">        this.passengerName = passengerName;</span>
+<span class="fc" id="L75">    }</span>
+
+    public String getPickupLocation() {
+<span class="fc" id="L78">        return pickupLocation;</span>
+    }
+
+    public void setPickupLocation(String pickupLocation) {
+<span class="fc" id="L82">        this.pickupLocation = pickupLocation;</span>
+<span class="fc" id="L83">    }</span>
+
+    public String getDropLocation() {
+<span class="fc" id="L86">        return dropLocation;</span>
+    }
+
+    public void setDropLocation(String dropLocation) {
+<span class="fc" id="L90">        this.dropLocation = dropLocation;</span>
+<span class="fc" id="L91">    }</span>
+
+    public BigDecimal getFare() {
+<span class="fc" id="L94">        return fare;</span>
+    }
+
+    public void setFare(BigDecimal fare) {
+<span class="fc" id="L98">        this.fare = fare;</span>
+<span class="fc" id="L99">    }</span>
+
+    public RideStatus getStatus() {
+<span class="fc" id="L102">        return status;</span>
+    }
+
+    public void setStatus(RideStatus status) {
+<span class="fc" id="L106">        this.status = status;</span>
+<span class="fc" id="L107">    }</span>
+
+    public LocalDateTime getBookingTime() {
+<span class="fc" id="L110">        return bookingTime;</span>
+    }
+
+    public void setBookingTime(LocalDateTime bookingTime) {
+<span class="fc" id="L114">        this.bookingTime = bookingTime;</span>
+<span class="fc" id="L115">    }</span>
+
+    public Driver getDriver() {
+<span class="fc" id="L118">        return driver;</span>
+    }
+
+    public void setDriver(Driver driver) {
+<span class="fc" id="L122">        this.driver = driver;</span>
+<span class="fc" id="L123">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

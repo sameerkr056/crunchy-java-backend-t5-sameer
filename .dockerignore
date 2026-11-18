@@ -1,0 +1,12 @@
+# Keep the Docker build small and never copy secrets into an image
+.git
+.github
+.idea
+.vscode
+target
+.env
+*.log
+docs
+postman
+scripts
+*.md

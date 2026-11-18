@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ProtectedEndpointResponseCustomizer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">crunchy-java-backend-t5-sameer</a> &gt; <a href="index.source.html" class="el_package">com.crunchycode.cabbooking.config</a> &gt; <span class="el_source">ProtectedEndpointResponseCustomizer.java</span></div><h1>ProtectedEndpointResponseCustomizer.java</h1><pre class="source lang-java linenums">package com.crunchycode.cabbooking.config;
+
+import io.swagger.v3.oas.models.Operation;
+import io.swagger.v3.oas.models.media.Content;
+import io.swagger.v3.oas.models.media.MediaType;
+import io.swagger.v3.oas.models.media.Schema;
+import io.swagger.v3.oas.models.responses.ApiResponse;
+import io.swagger.v3.oas.models.responses.ApiResponses;
+import org.springdoc.core.customizers.OperationCustomizer;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.method.HandlerMethod;
+
+/**
+ * Every endpoint that has @PreAuthorize can answer 401 (no or bad token) and 403 (wrong role).
+ * Instead of repeating these two answers on every method, they are added to the documentation here.
+ */
+<span class="fc" id="L17">public class ProtectedEndpointResponseCustomizer implements OperationCustomizer {</span>
+
+    @Override
+    public Operation customize(Operation operation, HandlerMethod handlerMethod) {
+<span class="fc bfc" id="L21" title="All 2 branches covered.">        if (!handlerMethod.hasMethodAnnotation(PreAuthorize.class)) {</span>
+<span class="fc" id="L22">            return operation;</span>
+        }
+<span class="fc bfc" id="L24" title="All 2 branches covered.">        if (operation.getResponses() == null) {</span>
+<span class="fc" id="L25">            operation.setResponses(new ApiResponses());</span>
+        }
+<span class="fc" id="L27">        addIfMissing(operation, &quot;401&quot;, &quot;Missing, invalid or expired token&quot;);</span>
+<span class="fc" id="L28">        addIfMissing(operation, &quot;403&quot;, &quot;Your role is not allowed to call this endpoint&quot;);</span>
+<span class="fc" id="L29">        return operation;</span>
+    }
+
+    private void addIfMissing(Operation operation, String code, String description) {
+<span class="fc bfc" id="L33" title="All 2 branches covered.">        if (operation.getResponses().containsKey(code)) {</span>
+<span class="fc" id="L34">            return;</span>
+        }
+<span class="fc" id="L36">        Schema&lt;Object&gt; errorSchema = new Schema&lt;&gt;();</span>
+<span class="fc" id="L37">        errorSchema.set$ref(&quot;#/components/schemas/ErrorResponse&quot;);</span>
+
+<span class="fc" id="L39">        Content content = new Content().addMediaType(&quot;application/json&quot;, new MediaType().schema(errorSchema));</span>
+<span class="fc" id="L40">        operation.getResponses().addApiResponse(code, new ApiResponse().description(description).content(content));</span>
+<span class="fc" id="L41">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

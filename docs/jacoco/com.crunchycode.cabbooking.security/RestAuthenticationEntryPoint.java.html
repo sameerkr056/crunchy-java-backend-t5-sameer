@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RestAuthenticationEntryPoint.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">crunchy-java-backend-t5-sameer</a> &gt; <a href="index.source.html" class="el_package">com.crunchycode.cabbooking.security</a> &gt; <span class="el_source">RestAuthenticationEntryPoint.java</span></div><h1>RestAuthenticationEntryPoint.java</h1><pre class="source lang-java linenums">package com.crunchycode.cabbooking.security;
+
+import com.crunchycode.cabbooking.dto.response.ErrorResponse;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.web.AuthenticationEntryPoint;
+
+import java.io.IOException;
+
+/** Called by Spring Security when someone without a valid token calls a protected URL: answers 401 in our JSON shape. */
+public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
+
+    private final ObjectMapper objectMapper;
+
+<span class="fc" id="L19">    public RestAuthenticationEntryPoint(ObjectMapper objectMapper) {</span>
+<span class="fc" id="L20">        this.objectMapper = objectMapper;</span>
+<span class="fc" id="L21">    }</span>
+
+    @Override
+    public void commence(HttpServletRequest request, HttpServletResponse response,
+                         AuthenticationException authException) throws IOException {
+<span class="fc" id="L26">        ErrorResponse body = new ErrorResponse(HttpStatus.UNAUTHORIZED.value(),</span>
+                &quot;Authentication is required. Send a valid token in the Authorization header: Bearer &lt;token&gt;&quot;,
+<span class="fc" id="L28">                request.getRequestURI());</span>
+<span class="fc" id="L29">        response.setStatus(HttpStatus.UNAUTHORIZED.value());</span>
+<span class="fc" id="L30">        response.setContentType(MediaType.APPLICATION_JSON_VALUE);</span>
+<span class="fc" id="L31">        objectMapper.writeValue(response.getOutputStream(), body);</span>
+<span class="fc" id="L32">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

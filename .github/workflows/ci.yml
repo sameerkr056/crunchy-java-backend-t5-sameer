@@ -1,0 +1,27 @@
+# Optional (stretch): runs the same command you run locally on every push and pull request.
+# GitHub's Ubuntu runners have Docker, so the MySQL migration test runs there too.
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Build, test and check coverage
+        run: ./mvnw -B clean verify
+      - name: Upload JaCoCo report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-report
+          path: docs/jacoco

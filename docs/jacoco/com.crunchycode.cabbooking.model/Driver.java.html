@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Driver.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">crunchy-java-backend-t5-sameer</a> &gt; <a href="index.source.html" class="el_package">com.crunchycode.cabbooking.model</a> &gt; <span class="el_source">Driver.java</span></div><h1>Driver.java</h1><pre class="source lang-java linenums">package com.crunchycode.cabbooking.model;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
+import jakarta.persistence.Table;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+@Entity
+@Table(name = &quot;drivers&quot;)
+public class Driver {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false, length = 100)
+    private String name;
+
+    @Column(nullable = false, length = 150)
+    private String email;
+
+    @Column(nullable = false, length = 15)
+    private String phone;
+
+    @Column(name = &quot;license_number&quot;, nullable = false, length = 50)
+    private String licenseNumber;
+
+    @Column(nullable = false)
+    private boolean available;
+
+    /**
+     * ONE-TO-MANY (inverse side). The foreign key lives in rides.driver_id, so Ride is the owning side.
+     * LAZY (the default for collections): rides are only loaded when somebody asks for them.
+     * That is exactly why looping over drivers and calling getRides() causes the N+1 problem.
+     */
+<span class="fc" id="L48">    @OneToMany(mappedBy = &quot;driver&quot;)</span>
+    @OrderBy(&quot;id ASC&quot;)
+    private List&lt;Ride&gt; rides = new ArrayList&lt;&gt;();
+
+    /**
+     * MANY-TO-MANY (owning side). Driver owns the relationship because a driver &quot;chooses&quot; its vehicle types.
+     * The join table driver_vehicle_types is written from this side only.
+     */
+<span class="fc" id="L56">    @ManyToMany</span>
+    @JoinTable(
+            name = &quot;driver_vehicle_types&quot;,
+            joinColumns = @JoinColumn(name = &quot;driver_id&quot;),
+            inverseJoinColumns = @JoinColumn(name = &quot;vehicle_type_id&quot;))
+    private Set&lt;VehicleType&gt; vehicleTypes = new HashSet&lt;&gt;();
+
+<span class="fc" id="L63">    public Driver() {</span>
+<span class="fc" id="L64">    }</span>
+
+    // Helper methods keep BOTH sides of the one-to-many relationship in sync.
+    public void addRide(Ride ride) {
+<span class="fc" id="L68">        rides.add(ride);</span>
+<span class="fc" id="L69">        ride.setDriver(this);</span>
+<span class="fc" id="L70">    }</span>
+
+    public void removeRide(Ride ride) {
+<span class="fc" id="L73">        rides.remove(ride);</span>
+<span class="fc" id="L74">        ride.setDriver(null);</span>
+<span class="fc" id="L75">    }</span>
+
+    public Long getId() {
+<span class="fc" id="L78">        return id;</span>
+    }
+
+    public void setId(Long id) {
+<span class="fc" id="L82">        this.id = id;</span>
+<span class="fc" id="L83">    }</span>
+
+    public String getName() {
+<span class="fc" id="L86">        return name;</span>
+    }
+
+    public void setName(String name) {
+<span class="fc" id="L90">        this.name = name;</span>
+<span class="fc" id="L91">    }</span>
+
+    public String getEmail() {
+<span class="fc" id="L94">        return email;</span>
+    }
+
+    public void setEmail(String email) {
+<span class="fc" id="L98">        this.email = email;</span>
+<span class="fc" id="L99">    }</span>
+
+    public String getPhone() {
+<span class="fc" id="L102">        return phone;</span>
+    }
+
+    public void setPhone(String phone) {
+<span class="fc" id="L106">        this.phone = phone;</span>
+<span class="fc" id="L107">    }</span>
+
+    public String getLicenseNumber() {
+<span class="fc" id="L110">        return licenseNumber;</span>
+    }
+
+    public void setLicenseNumber(String licenseNumber) {
+<span class="fc" id="L114">        this.licenseNumber = licenseNumber;</span>
+<span class="fc" id="L115">    }</span>
+
+    public boolean isAvailable() {
+<span class="fc" id="L118">        return available;</span>
+    }
+
+    public void setAvailable(boolean available) {
+<span class="fc" id="L122">        this.available = available;</span>
+<span class="fc" id="L123">    }</span>
+
+    public List&lt;Ride&gt; getRides() {
+<span class="fc" id="L126">        return rides;</span>
+    }
+
+    public Set&lt;VehicleType&gt; getVehicleTypes() {
+<span class="fc" id="L130">        return vehicleTypes;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>
