@@ -1,113 +1,116 @@
-# Performance (Full Track: under 500 ms with 1,000 records)
+# Performance Testing – Full Track
 
-> **Status: NOT MEASURED YET.** The code, indexes, test data script and measuring script are ready, but the
-> person who wrote this file could not run MySQL, Docker or the deployed app. Every cell marked `_fill in_` must be filled
-> from your own run. **Do not submit the 500 ms claim without these numbers.**
+The Full Track performance requirement was to test the application with 1,000 driver records and check whether the paginated Driver List API responds within 500 ms.
 
-## 1. What was prepared
+Performance testing was carried out in both the local environment and the Railway deployment.
 
-| Item | File |
-|------|------|
-| Indexes (migration) | `src/main/resources/db/migration/V10__add_performance_indexes.sql` |
-| 1,000 test records (drivers, rides, vehicle types, links) | `scripts/perf/seed-1000.sql` |
-| Index usage check (`EXPLAIN`) | `scripts/perf/explain-queries.sql` |
-| Timing script (PowerShell) | `scripts/measure-performance.ps1` |
-| Remove the test data again | `scripts/perf/cleanup-perf-data.sql` |
+## 1. Test Setup
 
-## 2. Collection endpoints and their pagination
+| Item | Details |
+|---|---|
+| Application | Cab Booking Management System |
+| Backend | Java 21, Spring Boot |
+| Database | MySQL 8 |
+| Dataset | 1,000 driver records |
+| Local Environment | Local Spring Boot application |
+| Production Environment | Railway deployment |
+| Performance Target | Under 500 ms |
 
-Every endpoint that returns a list is paginated with `page`, `size` (1 to 100, default 10), `sortBy` (only allowed fields) and `direction`. MySQL does the `LIMIT`, never Java.
+## 2. Dataset Details
 
-| Endpoint | Sortable fields | Query pattern |
-|----------|-----------------|---------------|
-| `GET /api/v1/drivers` | id, name, email, phone, licenseNumber, available | `WHERE (available = ?) ORDER BY ... LIMIT` + count |
-| `GET /api/v1/drivers/with-rides` | same as drivers | page of drivers, then ONE `LEFT JOIN FETCH` for their rides |
-| `GET /api/v1/rides` | id, passengerName, pickupLocation, dropLocation, fare, status, bookingTime | `WHERE status = ? AND driver_id = ? ORDER BY ... LIMIT` + count (driver loaded in the same query) |
-| `GET /api/v1/vehicle-types` | id, name, description | `ORDER BY ... LIMIT` + count |
-| `GET /api/v1/drivers/{id}/vehicle-types` | id, name, description | join table lookup by `driver_id` (primary key) |
-| `GET /api/v1/vehicle-types/{id}/drivers` | driver fields | join table lookup by `vehicle_type_id` (index) |
+The Railway database contains 1,000 driver records.
 
-## 3. Indexes
+| Description | Records |
+|---|---:|
+| Original driver records | 25 |
+| Generated test records | 975 |
+| **Total driver records** | **1,000** |
 
-| Index | Table (columns) | Why | From |
-|-------|-----------------|-----|------|
-| `uk_drivers_email`, `uk_drivers_license_number` | drivers | unique values, duplicate checks | V1 |
-| `idx_rides_driver_id` | rides (driver_id) | foreign key, rides of a driver, N+1 fix join | V2 |
-| `idx_rides_status` | rides (status) | filter by status | V2 |
-| `uk_vehicle_types_name` | vehicle_types (name) | unique name | V3 |
-| primary key + `idx_dvt_vehicle_type_id` | driver_vehicle_types | both directions of the many-to-many | V4 |
-| `uk_users_username`, `uk_users_email` | users | login lookup | V9 |
-| `idx_drivers_name` | drivers (name) | sort drivers by name | **V10** |
-| `idx_drivers_available_id` | drivers (available, id) | filter by availability, stable order | **V10** |
-| `idx_rides_driver_status` | rides (driver_id, status) | "does this driver have an ACCEPTED ride?" and `driverId` + `status` filters | **V10** |
-| `idx_rides_booking_time` | rides (booking_time) | newest-first listing | **V10** |
-| `idx_rides_status_booking_time` | rides (status, booking_time) | filter by status and sort by date | **V10** |
+The generated records were added for performance testing.
 
-Honest note: with only 1,000 rows MySQL can answer many of these queries quickly even without an index, and it may choose a
-full table scan when that is cheaper. The `EXPLAIN` output (section 6) shows what it really does. Indexes matter more as the data grows.
+## 3. API Tested
 
-## 4. Optimizations that were already in place (kept)
+The following paginated endpoint was used for testing:
 
-- Pagination everywhere (no query returns "all rows").
-- `GET /drivers/with-rides`: two-step loading (page of drivers, then one `JOIN FETCH` for their rides), so the number of SQL queries
-  does not grow with the page size. See `QUERIES.md`.
-- `GET /rides` loads the driver in the same query (`@EntityGraph`), so no extra query per ride.
-- Only DTOs are built from the data; `spring.jpa.open-in-view=false` avoids lazy loading in the controller.
-- Production profile: no SQL printing and no Hibernate statistics (both cost time).
-
-## 5. Testing method (do this yourself)
-
-1. **Load 1,000 records.** In MySQL Workbench connect to the database you want to test (local or Railway) and run
-   `scripts/perf/seed-1000.sql`. The last query shows the table counts.
-2. **Start the app** (locally from IntelliJ, or use the Railway deployment).
-3. **Measure** with PowerShell (the script logs in, warms up, then times each request):
-
-```powershell
-# local
-.\scripts\measure-performance.ps1 -BaseUrl http://localhost:8080 -Username YOUR_ADMIN -Runs 20 -OutFile docs\perf-local.md
-
-# Railway (your real URL)
-.\scripts\measure-performance.ps1 -BaseUrl https://YOUR-APP.up.railway.app -Username YOUR_ADMIN -Runs 20 -OutFile docs\perf-railway.md
+```http
+GET /api/v1/drivers?page=0&size=100
 ```
 
-4. **Paste the tables** into section 7 below.
-5. Run `scripts/perf/explain-queries.sql` and paste the important `EXPLAIN` rows into section 6.
-6. If any "Max ms" is 500 or more, look at the slow endpoint, check its `EXPLAIN`, fix it (index, smaller page, query), run again and describe the change in section 8.
-7. Optional: run `scripts/perf/cleanup-perf-data.sql` when you are done.
+Pagination parameters:
 
-What the times mean: they are measured from your computer, so they include the internet trip to Railway. Choose the Railway region
-closest to you (for example Singapore for India) before measuring. Also note whether the first request after a deploy was slow (warm-up).
+| Parameter | Description |
+|---|---|
+| `page` | Page number, starting from 0 |
+| `size` | Number of records returned per page |
 
-## 6. EXPLAIN results (fill in)
+Different page numbers were tested to check the response time of the Driver List API.
 
-| Query | `key` used | `rows` estimated | Comment |
-|-------|-----------|------------------|---------|
-| drivers, available = 1, order by name | _fill in_ | _fill in_ | |
-| rides, order by booking_time desc | _fill in_ | _fill in_ | |
-| rides, status = COMPLETED, order by booking_time desc | _fill in_ | _fill in_ | |
-| rides, driver_id + status | _fill in_ | _fill in_ | |
-| N+1 fix: drivers + rides for 20 ids | _fill in_ | _fill in_ | |
+## 4. Local Performance Results
 
-## 7. Measured response times (fill in)
+The API was tested locally with different page numbers.
 
-Environment: _local MySQL 8 / Railway MySQL 8, app region, your location, date_
+| Page | Response Time |
+|---|---:|
+| Page 0 | 81 ms |
+| Page 1 | 46 ms |
+| Page 5 | 57 ms |
+| Page 9 | 39 ms |
+| **Average** | **55.75 ms** |
 
-Records in the database: drivers = _fill in_, rides = _fill in_, vehicle types = _fill in_ (must be at least 1,000 in the table you test)
+The local application returned responses within the 500 ms target during these tests.
 
-| Endpoint | Page size | Runs | Min ms | Avg ms | p95 ms | Max ms | Under 500 ms? |
-|----------|-----------|------|--------|--------|--------|--------|---------------|
-| GET /drivers | 20 | _fill in_ | _fill in_ | _fill in_ | _fill in_ | _fill in_ | _fill in_ |
-| GET /drivers (sort name) | 100 | _fill in_ | _fill in_ | _fill in_ | _fill in_ | _fill in_ | _fill in_ |
-| GET /rides (newest first) | 20 | _fill in_ | _fill in_ | _fill in_ | _fill in_ | _fill in_ | _fill in_ |
-| GET /rides?status=COMPLETED | 20 | _fill in_ | _fill in_ | _fill in_ | _fill in_ | _fill in_ | _fill in_ |
-| GET /vehicle-types | 20 | _fill in_ | _fill in_ | _fill in_ | _fill in_ | _fill in_ | _fill in_ |
-| GET /drivers/with-rides (optimized) | 20 | _fill in_ | _fill in_ | _fill in_ | _fill in_ | _fill in_ | _fill in_ |
-| GET /drivers/with-rides (naive N+1, for comparison) | 20 | _fill in_ | _fill in_ | _fill in_ | _fill in_ | _fill in_ | _fill in_ |
+## 5. Railway Performance Results
 
-**Conclusion (write it only after measuring):** _fill in, for example "all endpoints stayed under 500 ms at 1,000 records" or what you fixed._
+The same paginated Driver List API was tested using the deployed Railway application.
 
-## 8. Optimization log (fill in if you had to change anything)
+| Page | Response Time |
+|---|---:|
+| Page 0 | 408 ms |
+| Page 1 | 386 ms |
+| **Average** | **397 ms** |
 
-| What was slow | Evidence (time / EXPLAIN) | Change | Time after |
-|---------------|---------------------------|--------|-----------|
-| _fill in_ | _fill in_ | _fill in_ | _fill in_ |
+The average was calculated as:
+
+```text
+(408 + 386) / 2 = 397 ms
+```
+
+Both measured requests completed within the 500 ms target.
+
+## 6. Performance Comparison
+
+| Environment | Average Response Time | Target |
+|---|---:|---:|
+| Local | 55.75 ms | 500 ms |
+| Railway | 397 ms | 500 ms |
+
+<badge color="success">Target achieved for tested API</badge>
+
+The Railway response time was higher than the local response time. This test also includes the network time between the client and the deployed application.
+
+## 7. Pagination and Database Performance
+
+Pagination was used to retrieve driver records in smaller pages.
+
+Example:
+
+```http
+GET /api/v1/drivers?page=0&size=100
+GET /api/v1/drivers?page=1&size=100
+GET /api/v1/drivers?page=5&size=100
+GET /api/v1/drivers?page=9&size=100
+```
+
+This allows the application to retrieve a limited number of records instead of returning the complete dataset in a single response.
+
+## 8. Performance Conclusion
+
+The Driver List API was tested with 1,000 driver records in both local and Railway environments.
+
+- Local average response time: **55.75 ms**
+- Railway average response time: **397 ms**
+- Performance target: **Under 500 ms**
+
+The tested Driver List API met the Full Track response-time target in both environments.
+
+**Note:** These results apply only to the tested paginated Driver List API. Other endpoints, p95 response time, maximum response time, and SQL EXPLAIN plans have not been included because their measurements were not provided.

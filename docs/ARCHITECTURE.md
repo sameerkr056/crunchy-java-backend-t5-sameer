@@ -1,86 +1,130 @@
 # Architecture
 
-## 1. Big picture (production)
+## 1. Overall Architecture (Production)
+
+The application is deployed on Railway and uses Railway MySQL for database storage.
 
 ```mermaid
 flowchart LR
-    User["Client<br/>(browser, Swagger UI, Postman)"]
-    subgraph Railway["Railway project"]
-        App["Spring Boot app<br/>Docker container<br/>profile: prod"]
-        DB[("Railway MySQL 8<br/>managed database")]
-    end
-    GitHub["GitHub repository"]
+    User["Client<br/>(Browser, Swagger UI, Postman)"]
 
-    User -- "HTTPS" --> App
-    App -- "JDBC over Railway's private network" --> DB
-    GitHub -- "push triggers build from Dockerfile" --> App
+    subgraph Railway["Railway Project"]
+        App["Spring Boot Application<br/>Docker Container"]
+        DB[("Railway MySQL 8")]
+    end
+
+    GitHub["GitHub Repository"]
+
+    User -- "HTTPS Request" --> App
+    App -- "Database Connection" --> DB
+    GitHub -- "Code Push / Deployment" --> App
 ```
 
-- Railway builds the image from the `Dockerfile` in the repository and runs it.
-- The public HTTPS address is created by Railway (it ends HTTPS at its proxy and forwards plain HTTP to the container).
-- The app talks to MySQL over the private network; the database is not meant to be used by browsers.
+- The Spring Boot application is deployed on Railway.
+- Railway provides a public HTTPS URL for accessing the APIs.
+- The application connects to Railway MySQL for database operations.
+- The GitHub repository contains the application source code and Dockerfile.
 
-## 2. Inside the application
+## 2. Internal Application Architecture
+
+The application follows a layered architecture. Each layer has a separate responsibility.
 
 ```mermaid
 flowchart TB
-    Req["HTTP request"] --> JF["JwtAuthenticationFilter<br/>reads Authorization: Bearer token"]
-    JF --> SC["Spring Security rules<br/>public: /auth, Swagger, /actuator/health<br/>everything else needs a valid token"]
-    SC --> C["Controllers<br/>@PreAuthorize (USER / ADMIN)<br/>validation, status codes"]
-    C --> S["Services<br/>business rules, @Transactional"]
-    S --> R["Spring Data JPA repositories"]
-    R --> DB[("MySQL")]
-    C -. "any exception" .-> EH["GlobalExceptionHandler<br/>same JSON error shape, no stack traces"]
-    S -. "any exception" .-> EH
+    Request["HTTP Request"]
+    Security["Spring Security<br/>JWT Authentication"]
+    Controller["Controller Layer<br/>REST API Endpoints"]
+    Service["Service Layer<br/>Business Logic"]
+    Repository["Repository Layer<br/>Spring Data JPA"]
+    Database[("MySQL Database")]
+    Exception["Global Exception Handling"]
+
+    Request --> Security
+    Security --> Controller
+    Controller --> Service
+    Service --> Repository
+    Repository --> Database
+
+    Controller -.-> Exception
+    Service -.-> Exception
 ```
 
-| Layer | Package | Job |
-|-------|---------|-----|
-| Security | `security` | JWT creation and checking, filter, BCrypt, 401 / 403 JSON answers |
-| Controller | `controller` | HTTP only. Role rules with `@PreAuthorize`. Swagger annotations |
-| Service | `service` | All business rules (ride status changes, driver availability, duplicates) |
-| Repository | `repository` | Spring Data JPA, paging, the JOIN FETCH query for the N+1 fix |
-| Model | `model` | JPA entities (`Driver`, `Ride`, `VehicleType`, `AppUser`) |
-| DTO | `dto` | Request and response classes. Entities are never returned directly |
-| Config | `config` | OpenAPI settings, first admin account |
-| Exception | `exception` | Custom exceptions and the global handler |
+### Layer Responsibilities
 
-## 3. Login and token flow
+| Layer | Package | Responsibility |
+|---|---|---|
+| Controller | `controller` | Handles HTTP requests and responses |
+| Service | `service` | Contains application business logic |
+| Repository | `repository` | Performs database operations using Spring Data JPA |
+| Entity | `entity` | Defines database entities such as Driver, Ride and VehicleType |
+| DTO | `dto` | Handles request and response data |
+| Security | `security` | Handles JWT authentication and security-related operations |
+| Configuration | `config` | Contains application configuration |
+| Exception | `exception` | Handles application exceptions |
+
+## 3. Authentication Flow
+
+The application uses JWT-based authentication to secure protected APIs.
 
 ```mermaid
 sequenceDiagram
-    participant C as Client
-    participant A as AuthController / AuthService
-    participant D as MySQL
-    C->>A: POST /api/v1/auth/login (username, password)
-    A->>D: find user, compare BCrypt hash
-    D-->>A: user
-    A-->>C: 200 { token, expiresInMinutes, role }
-    C->>A: GET /api/v1/drivers  + Authorization: Bearer token
-    Note over A: filter checks signature and expiry,<br/>@PreAuthorize checks the role
-    A->>D: SELECT ... LIMIT
-    A-->>C: 200 page of drivers
+    participant Client
+    participant Auth as Authentication API
+    participant Service as Auth Service
+    participant DB as MySQL
+    participant Filter as JWT Filter
+    participant API as Protected API
+
+    Client->>Auth: POST /api/v1/auth/login
+    Auth->>Service: Validate credentials
+    Service->>DB: Find user
+    DB-->>Service: User details
+    Service-->>Client: JWT Token
+
+    Client->>Filter: Request with Bearer Token
+    Filter->>Filter: Validate JWT
+    Filter->>API: Continue authenticated request
+    API-->>Client: API Response
 ```
 
-## 4. Database
+**Authentication steps:**
+
+1. The user sends login credentials.
+2. The application validates the credentials.
+3. After successful login, a JWT token is generated.
+4. The client sends the token in the Authorization header.
+5. The JWT filter validates the token before allowing access to protected endpoints.
+
+Authorization header example:
+
+```http
+Authorization: Bearer <your-jwt-token>
+```
+
+## 4. Database Architecture
+
+The application uses MySQL 8 to store driver, ride, vehicle type and user information.
 
 ```mermaid
 erDiagram
-    DRIVERS ||--o{ RIDES : "has (driver_id, owning side)"
-    DRIVERS }o--o{ VEHICLE_TYPES : "driver_vehicle_types"
+    DRIVERS ||--o{ RIDES : has
+    DRIVERS }o--o{ VEHICLE_TYPES : supports
+
     USERS {
         bigint id PK
-        varchar username UK
-        varchar email UK
-        varchar password "BCrypt hash"
-        varchar role "ADMIN or USER"
+        varchar username
+        varchar email
+        varchar password
+        varchar role
     }
+
     DRIVERS {
         bigint id PK
-        varchar email UK
-        varchar license_number UK
+        varchar email
+        varchar license_number
         boolean available
     }
+
     RIDES {
         bigint id PK
         bigint driver_id FK
@@ -88,21 +132,61 @@ erDiagram
         decimal fare
         datetime booking_time
     }
+
     VEHICLE_TYPES {
         bigint id PK
-        varchar name UK
+        varchar name
     }
 ```
 
-Flyway owns the schema (`V1` to `V10`). Hibernate only validates it (`ddl-auto=validate`).
+- A driver can have multiple rides.
+- Each ride is associated with a driver through `driver_id`.
+- Drivers can be associated with vehicle types.
+- User records are used for authentication and authorization.
 
-## 5. Local versus production
+### Database Migrations
 
-| | Local | Production (Railway) |
+Flyway manages database schema changes through versioned migration scripts.
+
+Migration files are stored in:
+
+```text
+src/main/resources/db/migration/
+```
+
+The project contains migration scripts from `V1` to `V10`.
+
+## 5. Local vs Production Environment
+
+| Configuration | Local Environment | Production Environment |
 |---|---|---|
-| Database | MySQL Server on your PC, managed with MySQL Workbench | Railway MySQL |
-| Profile | none (default) | `prod` (set in the Dockerfile) |
-| Port | 8080 | `PORT` given by Railway |
-| SQL logging | on (to study the N+1 problem) | off |
-| Config source | IntelliJ environment variables | Railway service variables |
-| Same in both | MySQL 8, Flyway migrations, code, JWT rules | |
+| Application | Spring Boot | Spring Boot on Railway |
+| Database | Local MySQL | Railway MySQL |
+| Port | 8080 | Railway-provided port |
+| Configuration | Local application configuration | Railway environment variables |
+| Database migrations | Flyway | Flyway |
+| API access | Localhost | Public HTTPS URL |
+
+Both environments use the same application code and database migration structure. Database connection settings are configured according to the environment.
+
+## 6. Deployment Workflow
+
+```mermaid
+flowchart TD
+    Developer["Developer"]
+    Code["Project Source Code"]
+    GitHub["GitHub Repository"]
+    Railway["Railway Deployment"]
+    Docker["Docker Container"]
+    Database[("Railway MySQL")]
+    Live["Live REST APIs"]
+
+    Developer --> Code
+    Code --> GitHub
+    GitHub --> Railway
+    Railway --> Docker
+    Docker --> Database
+    Docker --> Live
+```
+
+The source code is maintained in GitHub and deployed on Railway using Docker. The deployed application connects to Railway MySQL and exposes REST APIs through its public URL.
